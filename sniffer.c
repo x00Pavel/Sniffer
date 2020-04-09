@@ -1,60 +1,38 @@
-#include <stdio.h>
-#include <pcap.h>
-
+#include <getopt.h>
 #include <netinet/ether.h>
+#include <netinet/icmp6.h>
 #include <netinet/ip.h>
 #include <netinet/ip6.h>
 #include <netinet/tcp.h>
 #include <netinet/udp.h>
-#include <netinet/icmp6.h>
-#include <getopt.h>
+#include <pcap/pcap.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#include <stdint.h>
+#include <stdio.h>
 
-//typedef enum interfaces {
-//    all = 0,
-//    eth0 = 1,
-//    wlan0 = 2
-//} Interfaces;
+#include "functions.h"
 
-
-FILE *logofile;
-struct sockaddr_in src, dst;
-
-char* interface = "all";
-int num_of_pkts = -1;
-int port = -1;
-bool tcp = false;
-bool udp = false;
-
-int main(int argc, char** argv) {
+int main(int argc, char **argv) {
     int c;
 
-    pcap_if_t *alldevsp, *device;
-    pcap_t *host;
-    char err_buff[100];
-    char *device_name;
-    char devs[100][100];
-
-    if (pcap_findalldevs(&alldevsp, err_buff)){
-        printf("Error finding devices : %s" , err_buff);
+    if (argc == 1) {
+        print_log("No parameters are specified", 1);
         exit(1);
     }
 
-    pcap_if_t *tmp;
-    int i = 0;
-    for (tmp = alldevsp; tmp; tmp = tmp->next){
-        printf("#%d: %s %s %s\n",++i,tmp->name,tmp->description,tmp->description);
-    }
+    static struct option long_opts[] = {{"tcp", no_argument, &tcp, 1},
+                                        {"udp", no_argument, &udp, 1}};
 
-    while ((c = getopt(argc, argv, "i:p:n:tcpudp")) != -1){
-        switch (c){
+    while ((c = getopt_long(argc, argv, "i:p:n:tu", long_opts, NULL)) != -1) {
+        switch (c) {
+            case 0:
+                break;
             case 'i':
-                if (optarg != NULL){
+                if (optarg != NULL) {
                     interface = optarg;
-                }
-                else{
-                    printf("Flag -i is set, but no interface given. Out...\n");
+                } else {
+                    printf("Flag -i is set, but no interface given. Out..\n");
                     return 1;
                 }
                 break;
@@ -70,13 +48,14 @@ int main(int argc, char** argv) {
             case 'u':
                 udp = true;
                 break;
+            case '?':
             default:
+                print_log("Error while processing arguments. Unknown argument", 1);
                 return 1;
         }
-        printf("arg is %c\nvalue is %s\n",c, optarg);
     }
 
-
-
+    start_loop();
+    print_log("All alright.End..", 2);
     return 0;
 }
