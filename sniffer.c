@@ -1,10 +1,4 @@
 #include <getopt.h>
-#include <netinet/ether.h>
-#include <netinet/icmp6.h>
-#include <netinet/ip.h>
-#include <netinet/ip6.h>
-#include <netinet/tcp.h>
-#include <netinet/udp.h>
 #include <pcap/pcap.h>
 #include <stdbool.h>
 #include <stdlib.h>
@@ -21,8 +15,8 @@ int main(int argc, char **argv) {
         exit(1);
     }
 
-    static struct option long_opts[] = {{"tcp", no_argument, &tcp, 1},
-                                        {"udp", no_argument, &udp, 1}};
+    static struct option long_opts[] = {{"tcp", no_argument, &tcp_f, 1},
+                                        {"udp", no_argument, &udp_f, 1}};
 
     while ((c = getopt_long(argc, argv, "i:p:n:tu", long_opts, NULL)) != -1) {
         switch (c) {
@@ -40,13 +34,14 @@ int main(int argc, char **argv) {
                 num_of_pkts = (int) strtol(optarg, NULL, 10);
                 break;
             case 'p':
+                // Check if argument is set
                 port = (int) strtol(optarg, NULL, 10);
                 break;
             case 't':
-                tcp = true;
+                tcp_f = 1;
                 break;
             case 'u':
-                udp = true;
+                udp_f = 1;
                 break;
             case '?':
             default:
@@ -55,7 +50,9 @@ int main(int argc, char **argv) {
         }
     }
 
+    create_string();
     start_loop();
     print_log("All alright.End..", 2);
+    delete_string();
     return 0;
 }
