@@ -1,3 +1,5 @@
+#include <arpa/inet.h>
+#include <netdb.h>
 #include <netinet/ether.h>
 #include <netinet/icmp6.h>
 #include <netinet/ip.h>
@@ -9,7 +11,8 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-
+#include <sys/socket.h>
+#include <time.h>
 
 char *interface = "any";
 int num_of_pkts = 1;
@@ -26,22 +29,22 @@ struct bpf_program fp;
 size_t def_size = 20 * sizeof(char);
 
 typedef struct string_s {
-     char * str;
-     size_t size;
-     size_t len;
+    char *str;
+    size_t size;
+    size_t len;
 } string_t;
 
 string_t string = {NULL, 0, 0};
 
-void delete_string(){
-    if (string.str){
+void delete_string() {
+    if (string.str) {
         free(string.str);
-    } 
+    }
 }
 
-void concat_str(char *src){
-    if ((sizeof(src)/sizeof(char)) + string.len + 4 >= string.size) {
-        string.str = (char *) realloc(string.str, def_size);
+void concat_str(char *src) {
+    if ((sizeof(src) / sizeof(char)) + string.len + 4 >= string.size) {
+        string.str = (char *)realloc(string.str, def_size);
         string.size += def_size;
     }
     string.str = strcat(string.str, src);
@@ -49,10 +52,10 @@ void concat_str(char *src){
 }
 
 void create_string() {
-    if (string.str){
+    if (string.str) {
         free(string.str);
         string.str = NULL;
-    } 
+    }
     string.str = (char *)malloc(def_size);
     string.size = def_size;
     string.len = 0;
@@ -71,44 +74,115 @@ void print_log(char *msg, int type) {
     }
 }
 
-void process_tcp(const u_int8_t *buffer, u_int32_t size) {}
-
-void process_udp(const u_int8_t *buffer, u_int32_t size) {}
-
 void process_packet(u_int8_t *args, const struct pcap_pkthdr *header,
-                    const u_int8_t *buffer) {
-    u_int32_t size = header->len;
+                    const u_int8_t *packet) {
+    (void)args;
+    // Geting time with microseconds
+    struct timeval timestamp = header->ts;
+    char str[80];
+    char full_time[128];
+    struct tm *info;
+    char src[NI_MAXHOST];  // Buffer for source address
+    char dst[NI_MAXHOST];  // Buffer for destination address
+    struct iphdr *iph;
+    int  ip_hdr_len;
 
-    struct iphdr *iph = (struct iphdr *)(buffer + sizeof(struct ethhdr));
-    ++total_cnt;
+    info = localtime(&timestamp.tv_sec);
+    strftime(str, 80, "%X", info);
+    sprintf(full_time, "%s.%ld ", str, timestamp.tv_usec);
+    fprintf(stdout, "%s", full_time);
 
+    // Process input packates
+    iph = (struct iphdr *)(packet + sizeof(struct ethhdr));
+    ip_hdr_len = iph->ihl * 4;
+    memset(&source, 0, sizeof(source));
+    memset(&dest, 0, sizeof(dest));
+    source.sin_family = AF_INET;
+    dest.sin_family = AF_INET;
+    source.sin_addr.s_addr = iph->saddr;
+    dest.sin_addr.s_addr = iph->daddr;
+
+    if (getnameinfo((struct sockaddr *)&source, sizeof(source), src,
+                    sizeof(src), NULL, 0, 0) != 0) {
+        print_log("Error in getting source address", 1);
+        exit(1);
+    }
+
+    if (getnameinfo((struct sockaddr *)&dest, sizeof(dest), dst, sizeof(dst),
+                    NULL, 0, 0) != 0) {
+        print_log("Error in getting destination address", 1);
+        exit(1);
+    }
+
+    struct tcphdr *tcp_h;
+    struct udphdr *udp_h;
     switch (iph->protocol) {
         case 6:  // TCP
-            process_tcp(buffer, size);
-            printf("total len in tcp %d\n", iph->tot_len);
+            print_log("TCP packet", 2);
+            tcp_h =
+                (struct tcphdr *)(packet + ip_hdr_len + sizeof(struct ethhdr));
+            source.sin_port = tcp_h->source;
+            dest.sin_port = tcp_h->dest;
             break;
         case 17:  // UDP
-            process_udp(buffer, size);
-            printf("total len in udp %d\n", iph->tot_len);
+            print_log("UDP packet", 2);
+            udp_h =
+                (struct udphdr *)(packet + ip_hdr_len + sizeof(struct ethhdr));
+            source.sin_port = udp_h->source;
+            dest.sin_port = udp_h->dest;
             break;
         default:  // Other protocol
             break;
-            // print_log("Protocol not supported");
-            // exit(1);
     }
+
+    fprintf(stdout, "%s: %u-> %s: %u\n\n", src, source.sin_port, dst,
+            dest.sin_port);
+    unsigned j;
+    for (size_t i = 0; i < header->len; i += 16) {
+        char str[32];
+
+        unsigned len = 16;
+        if (i + 16 >= header->len) {
+            len = 15 - i % 16;
+            printf("0x%04lx ", i + len);
+        } else {
+            printf("0x%04lx ", i);
+        }
+
+        for (j = 0; j < len; j++) {
+            // u_int8_t c = packet[i + j];
+            printf("%x ", packet[i + j]);
+            sprintf(str + j, "%x ", packet[i + j]);
+        }
+
+        for (j = 0; j < len; j++) {
+            if (packet[i + j] >= 32 && packet[i + j] <= 128) {
+                printf("%c", packet[i + j]);
+            } else {
+                printf(".");
+            }
+        }
+
+        if (i != 0 && (i + 16) % 64 == 0) {
+            printf("\n\n");
+        } else {
+            printf("\n");
+        }
+    }
+    printf("\n");
 }
 
-char *create_filter(){
+char *create_filter() {
     create_string();
-    if (udp_f == tcp_f){
+    if (udp_f == tcp_f) {
         concat_str("tcp or udp");
-    } else if (udp_f == 1){
+    } else if (udp_f == 1) {
         concat_str("udp");
-    } else if (tcp_f == 1){
+    } else if (tcp_f == 1) {
         concat_str("tcp");
     }
 
-    if (port != -1){
+    if (port != -1) {
         char str[sizeof(port) + 1];
         sprintf(str, "%d", port);
         concat_str("port");
@@ -119,38 +193,25 @@ char *create_filter(){
 }
 
 void start_loop() {
-    pcap_if_t *alldevsp; //, *device;
-    pcap_t *handler;  // Handle of the device that shall be sniffed
+    pcap_if_t *alldevsp;
+    pcap_t *handler;
     char *filter;
-
     char err_buf[PCAP_ERRBUF_SIZE];
-    int count = 0;
-
+    struct pcap_pkthdr header;
+    const uint8_t *packet;
     // First get the list of available devices
     print_log("Finding available devices ... ", 2);
-    if (pcap_findalldevs(&alldevsp, err_buf)) {
+    if (pcap_findalldevs(&alldevsp, err_buf) == -1) {
         print_log("Error scanning devices", 1);
         print_log(err_buf, 1);
         exit(1);
     }
-
-    // Print the available devices
-    // printf("\nAvailable Devices are :\n");
-    // for (device = alldevsp; device != NULL; device = device->next) {
-    //     printf("%d. %s - %s\n", count, device->name, device->description);
-    //     if (device->name != NULL) {
-    //         strcpy(devs[count], device->name);
-    //     count++;
-
-    //     }
-    // }
-
-    count = sizeof(&alldevsp);
+    // Check if given interface is valid on current device
     bool valid = false;
-    for (int i = 0; i <= count; i = i + 1) {
-        char *name = alldevsp[i].name;
-        if (name != NULL) {
-            if (strcmp(name, interface) == 0) {
+
+    for (pcap_if_t *device = alldevsp; device != NULL; device = device->next) {
+        if (device->name != NULL) {
+            if (strcmp(device->name, interface) == 0) {
                 valid = true;
                 print_log("Interface is valid", 2);
                 break;
@@ -172,7 +233,7 @@ void start_loop() {
         exit(1);
     }
 
-    // Setup filter 
+    // Setup filter
     filter = create_filter();
     print_log(filter, 2);
     if (pcap_compile(handler, &fp, filter, 0, PCAP_NETMASK_UNKNOWN) == -1) {
@@ -187,9 +248,15 @@ void start_loop() {
         exit(1);
     }
 
-
     print_log("Start sniffing given device", 2);
 
-    // Put the device in sniff loop
-    pcap_loop(handler, num_of_pkts, process_packet, NULL);
+    for (int i = 0; i < num_of_pkts; i++) {
+        packet = pcap_next(handler, &header);
+        if (packet == NULL) {
+            print_log("Didn't grab packet", 1);
+            exit(1);
+        }
+
+        process_packet(NULL, &header, packet);
+    }
 }
