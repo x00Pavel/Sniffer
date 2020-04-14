@@ -28,39 +28,6 @@ struct bpf_program fp;
 
 size_t def_size = 20 * sizeof(char);
 
-typedef struct string_s {
-    char *str;
-    size_t size;
-    size_t len;
-} string_t;
-
-string_t string = {NULL, 0, 0};
-
-void delete_string() {
-    if (string.str) {
-        free(string.str);
-    }
-}
-
-void concat_str(char *src) {
-    if ((sizeof(src) / sizeof(char)) + string.len + 4 >= string.size) {
-        string.str = (char *)realloc(string.str, def_size);
-        string.size += def_size;
-    }
-    string.str = strcat(string.str, src);
-    string.str = strcat(string.str, " ");
-}
-
-void create_string() {
-    if (string.str) {
-        free(string.str);
-        string.str = NULL;
-    }
-    string.str = (char *)malloc(def_size);
-    string.size = def_size;
-    string.len = 0;
-}
-
 void print_log(char *msg, int type) {
     switch (type) {
         case 1:
@@ -156,7 +123,7 @@ void process_packet(u_int8_t *args, const struct pcap_pkthdr *header,
         }
 
         for (j = 0; j < len; j++) {
-            if (packet[i + j] >= 32 && packet[i + j] <= 128) {
+            if (packet[i + j] > 32 && packet[i + j] < 127) {
                 printf("%c", packet[i + j]);
             } else {
                 printf(".");
@@ -172,33 +139,35 @@ void process_packet(u_int8_t *args, const struct pcap_pkthdr *header,
     printf("\n");
 }
 
-char *create_filter() {
-    create_string();
+void create_filter(char filter[64]) {
+    size_t offset = 0;
     if (udp_f == tcp_f) {
-        concat_str("tcp or udp");
+        sprintf(filter, "%s", "(tcp or udp) ");
+        offset = sizeof("(tcp or udp)");
     } else if (udp_f == 1) {
-        concat_str("udp");
+        sprintf(filter, "%s", "udp ");
+        offset = sizeof("udp ");
     } else if (tcp_f == 1) {
-        concat_str("tcp");
+        sprintf(filter, "%s", "tcp ");
+        offset = sizeof("tcp ");
     }
 
     if (port != -1) {
-        char str[sizeof(port) + 1];
-        sprintf(str, "%d", port);
-        concat_str("port");
-        concat_str(str);
+        sprintf(filter+offset, "and port %d", port);
     }
-
-    return string.str;
 }
 
+/**
+ * \brief Function that prepare given interface for sniffing
+ */
 void start_loop() {
+    char err_buf[PCAP_ERRBUF_SIZE];
+    char filter[64];
     pcap_if_t *alldevsp;
     pcap_t *handler;
-    char *filter;
-    char err_buf[PCAP_ERRBUF_SIZE];
     struct pcap_pkthdr header;
     const uint8_t *packet;
+
     // First get the list of available devices
     print_log("Finding available devices ... ", 2);
     if (pcap_findalldevs(&alldevsp, err_buf) == -1) {
@@ -234,7 +203,7 @@ void start_loop() {
     }
 
     // Setup filter
-    filter = create_filter();
+    create_filter(filter);
     print_log(filter, 2);
     if (pcap_compile(handler, &fp, filter, 0, PCAP_NETMASK_UNKNOWN) == -1) {
         print_log("Creating of filters is failed...", 1);
