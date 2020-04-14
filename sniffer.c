@@ -14,10 +14,10 @@ int main(int argc, char **argv) {
         print_log("No parameters are specified", 1);
         exit(1);
     }
-
+    // Long arguments
     static struct option long_opts[] = {{"tcp", no_argument, &tcp_f, 1},
                                         {"udp", no_argument, &udp_f, 1}};
-
+    // Parse input arguments
     while ((c = getopt_long(argc, argv, "i:p:n:tu", long_opts, NULL)) != -1) {
         switch (c) {
             case 0:
@@ -50,9 +50,7 @@ int main(int argc, char **argv) {
         }
     }
 
-    create_string();
     start_loop();
     print_log("All alright.End..", 2);
-    delete_string();
     return 0;
 }
