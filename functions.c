@@ -47,7 +47,7 @@ void print_log(char *msg, int type) {
 void print_data(const u_int8_t *packet, u_int32_t size) {
     unsigned j;
     for (size_t i = 0; i < size; i += 16) {
-        char str[32];
+        char str[17];
 
         unsigned len = 16;
         if (i + 16 >= size) {
@@ -58,23 +58,18 @@ void print_data(const u_int8_t *packet, u_int32_t size) {
         }
 
         for (j = 0; j < len; j++) {
-            // u_int8_t c = packet[i + j];
             printf("%x ", packet[i + j]);
-            sprintf(str + j, "%x ", packet[i + j]);
-        }
-
-        for (j = 0; j < len; j++) {
             if (packet[i + j] > 32 && packet[i + j] < 127) {
-                printf("%c", packet[i + j]);
+                sprintf(str + j, "%c", packet[i + j]);
             } else {
-                printf(".");
+                sprintf(str+j,".");
             }
         }
-
+    
         if (i != 0 && (i + 16) % 64 == 0) {
-            printf("\n\n");
+            printf("%s\n\n", str);
         } else {
-            printf("\n");
+            printf("%s\n", str);
         }
     }
     printf("\n");
@@ -157,8 +152,8 @@ void process_packet(u_int8_t *args, const struct pcap_pkthdr *header,
 void create_filter(char *filter) {
     size_t offset = 0;
     if (udp_f == tcp_f) {
-        sprintf(filter, "%s", "tcp and udp ");
-        offset = sizeof("tcp nad udp ");
+        sprintf(filter, "%s", "tcp or udp ");
+        offset = sizeof("tcp or udp ");
     } else if (udp_f == 1) {
         sprintf(filter, "%s", "udp ");
         offset = sizeof("proto udp ");
