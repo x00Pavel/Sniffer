@@ -75,9 +75,8 @@ void print_data(const u_int8_t *packet, u_int32_t size) {
     printf("\n");
 }
 
-void process_packet(u_int8_t *args, const struct pcap_pkthdr *header,
+void process_packet(const struct pcap_pkthdr *header,
                     const u_int8_t *packet) {
-    (void)args;
     struct timeval timestamp = header->ts;
     char str[80];
     struct tm *info;
@@ -150,20 +149,20 @@ void process_packet(u_int8_t *args, const struct pcap_pkthdr *header,
  * \param[out] filter Returning string with genreated filter string
  */
 void create_filter(char *filter) {
-    size_t offset = 0;
+    int offset = 0;
     if (udp_f == tcp_f) {
-        sprintf(filter, "%s", "tcp or udp ");
-        offset = sizeof("tcp or udp ");
+        sprintf(filter, "%s", "(tcp or udp) ");
+        offset = sizeof("(tcp or udp) ") - 1;
     } else if (udp_f == 1) {
         sprintf(filter, "%s", "udp ");
-        offset = sizeof("proto udp ");
+        offset = sizeof("udp ") - 1;
     } else if (tcp_f == 1) {
         sprintf(filter, "%s", "tcp ");
-        offset = sizeof("proto tcp ");
+        offset = sizeof("tcp ") - 1;
     }
 
     if (port != -1) {
-        sprintf(filter + offset, "and port %d", port);
+        sprintf(filter + offset, "port %d", port);
     }
 }
 
@@ -172,36 +171,10 @@ void create_filter(char *filter) {
  */
 void start_loop() {
     char err_buf[PCAP_ERRBUF_SIZE];
-    char filter[64];
-    pcap_if_t *alldevsp;
+    char filter[128];
     pcap_t *handler;
     struct pcap_pkthdr header;
     const uint8_t *packet;
-
-    // First get the list of available devices
-    print_log("Finding available devices ... ", 2);
-    if (pcap_findalldevs(&alldevsp, err_buf) == -1) {
-        print_log("Error scanning devices", 1);
-        print_log(err_buf, 1);
-        exit(1);
-    }
-
-    // Check if given interface is valid on current device
-    bool valid = false;
-    for (pcap_if_t *device = alldevsp; device != NULL; device = device->next) {
-        if (device->name != NULL) {
-            if (strcmp(device->name, interface) == 0) {
-                valid = true;
-                print_log("Interface is valid", 2);
-                break;
-            }
-        }
-    }
-
-    if (!valid) {
-        print_log("Interface is not avaliable on this device.", 1);
-        exit(1);
-    }
 
     // Opening interfacer for sniffing
     print_log("Opening interface for sniffing ", 2);
@@ -230,6 +203,7 @@ void start_loop() {
 
     // Processing of packets
     print_log("Start sniffing given device", 2);
+
     for (int i = 0; i < num_of_pkts; i++) {
         packet = pcap_next(handler, &header);
         if (packet == NULL) {
@@ -237,6 +211,6 @@ void start_loop() {
             exit(1);
         }
 
-        process_packet(NULL, &header, packet);
+        process_packet(&header, packet);
     }
 }
