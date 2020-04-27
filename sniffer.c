@@ -1,3 +1,11 @@
+/**
+ * \author Pavel Yadlouski (xyadlo00)
+ * \date April, 2020
+ * \brief Projet for subject IPK
+ * \file sniffer.c  Main executor of program
+*/
+
+
 #include <getopt.h>
 #include <pcap/pcap.h>
 #include <stdbool.h>
@@ -17,8 +25,8 @@ void print_help() {
         "This program is a packet sniffer. It supports printing out \n"
         "whole paket of TCP and UDP protocols.\n\n"
         "\033[1mParameters\033[0m:\n"
-        "\t-i <inteffaces_name> interface to be sniffed\n"
-        "\t-n <num>             maximum count of packtees to be sniffed\n"
+        "\t-i <interfaces_name> interface to be sniffed\n"
+        "\t-n <num>             maximum count of packets to be sniffed\n"
         "\t-u --udp             filter UDP packets\n"
         "\t-t --tcp             filter TCP packets\n"
         "\t-p <port>            number of port to be sniffed\n");
@@ -36,7 +44,7 @@ int main(int argc, char **argv) {
                                         {"help", no_argument, NULL, 0}};
     // Parse input arguments
     int option_index = 0;
-    while ((c = getopt_long(argc, argv, "i:p:n:tu", long_opts,
+    while ((c = getopt_long(argc, argv, "hi:p:n:tu", long_opts,
                             &option_index)) != -1) {
         switch (c) {
             case 0:
@@ -53,6 +61,9 @@ int main(int argc, char **argv) {
                     return 0;
                 }
                 break;
+            case 'h':
+                print_help();
+                return 0;
             case 'i':
                 if (optarg != NULL) {
                     interface = optarg;
