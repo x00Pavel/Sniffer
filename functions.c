@@ -27,7 +27,7 @@ struct bpf_program fp;
 
 /**
  * \brief Printing of log information to standart error output
-*/
+ */
 void print_log(char *msg, int type) {
     switch (type) {
         case 1:
@@ -42,30 +42,36 @@ void print_log(char *msg, int type) {
 }
 
 /**
- * \brief Formated print of given packet 
-*/
+ * \brief Formated print of given packet
+ */
 void print_data(const u_int8_t *packet, u_int32_t size) {
-    unsigned j;
-    for (size_t i = 0; i < size; i += 16) {
+    u_int32_t j;
+    for (u_int32_t i = 0; i < size; i = i + 16 ) {
         char str[17];
 
-        unsigned len = 16;
+        u_int32_t len = 16;
         if (i + 16 >= size) {
-            len = 15 - i % 16;
-            printf("0x%04lx ", i + len);
-        } else {
-            printf("0x%04lx ", i);
-        }
+            len = size - i;
+        } //else {
+            // printf("0x%04x ", i);
+        // }
+            printf("0x%04x ", i );
 
         for (j = 0; j < len; j++) {
-            printf("%x ", packet[i + j]);
+            printf("%02x ", packet[i + j]);
+
             if (packet[i + j] > 32 && packet[i + j] < 127) {
                 sprintf(str + j, "%c", packet[i + j]);
             } else {
-                sprintf(str+j,".");
+                sprintf(str + j, ".");
             }
         }
-    
+
+        if (len != 16) {
+            for (u_int32_t a = len; a < 16; a++) {
+                printf("   ");
+            }
+        }
         if (i != 0 && (i + 16) % 64 == 0) {
             printf("%s\n\n", str);
         } else {
@@ -75,8 +81,13 @@ void print_data(const u_int8_t *packet, u_int32_t size) {
     printf("\n");
 }
 
-void process_packet(const struct pcap_pkthdr *header,
-                    const u_int8_t *packet) {
+// void process_tcp(){
+//     struct tcphdr *tcp_h = (struct tcphdr *)(packet + ip_hdr_len + sizeof(struct ethhdr));
+//     source.sin_port = tcp_h->source;
+//     dest.sin_port = tcp_h->dest;
+// }
+
+void process_packet(const struct pcap_pkthdr *header, const u_int8_t *packet) {
     struct timeval timestamp = header->ts;
     char str[80];
     struct tm *info;
@@ -95,7 +106,7 @@ void process_packet(const struct pcap_pkthdr *header,
     source.sin_addr.s_addr = iph->saddr;
     dest.sin_addr.s_addr = iph->daddr;
 
-    // Ger source host name or IP addres on failed 
+    // Ger source host name or IP addres on failed
     if (getnameinfo((struct sockaddr *)&source, sizeof(source), src,
                     sizeof(src), NULL, 0, 0) != 0) {
         print_log("Error in getting source address", 1);
@@ -112,8 +123,10 @@ void process_packet(const struct pcap_pkthdr *header,
     // Getting header of current protocol
     struct tcphdr *tcp_h;
     struct udphdr *udp_h;
+    
     switch (iph->protocol) {
         case 6:  // TCP
+
             print_log("TCP packet", 2);
             tcp_h =
                 (struct tcphdr *)(packet + ip_hdr_len + sizeof(struct ethhdr));
@@ -124,8 +137,8 @@ void process_packet(const struct pcap_pkthdr *header,
             print_log("UDP packet", 2);
             udp_h =
                 (struct udphdr *)(packet + ip_hdr_len + sizeof(struct ethhdr));
-            source.sin_port = udp_h->source;
-            dest.sin_port = udp_h->dest;
+            source.sin_port = udp_h->uh_sport;
+            dest.sin_port = udp_h->uh_dport;
             break;
         default:  // Other protocol
             print_log("Other protocol", 2);
@@ -136,12 +149,10 @@ void process_packet(const struct pcap_pkthdr *header,
     info = localtime(&timestamp.tv_sec);
     strftime(str, 80, "%X", info);
     fprintf(stdout, "%s.%ld ", str, timestamp.tv_usec);
-    fprintf(stdout, "%s: %u-> %s: %u\n\n", src, source.sin_port, dst,
-            dest.sin_port);
+    fprintf(stdout, "%s: %u-> %s: %u\n\n", src, ntohs(source.sin_port), dst,
+            ntohs(dest.sin_port));
     print_data(packet, header->len);
 }
-
-
 
 /**
  * \brief Function for creating filter string
@@ -149,20 +160,26 @@ void process_packet(const struct pcap_pkthdr *header,
  * \param[out] filter Returning string with genreated filter string
  */
 void create_filter(char *filter) {
-    int offset = 0;
     if (udp_f == tcp_f) {
-        sprintf(filter, "%s", "(tcp or udp) ");
-        offset = sizeof("(tcp or udp) ") - 1;
+        if (port != -1) {
+            sprintf(filter, "tcp port %d or udp port %d", port, port);
+        } else {
+            sprintf(filter, "tcp or udp ");
+        }
     } else if (udp_f == 1) {
-        sprintf(filter, "%s", "udp ");
-        offset = sizeof("udp ") - 1;
+        if (port != -1) {
+            sprintf(filter, "udp port %d", port);
+        }
+        else{
+            sprintf(filter, "udp");
+        }
     } else if (tcp_f == 1) {
-        sprintf(filter, "%s", "tcp ");
-        offset = sizeof("tcp ") - 1;
-    }
-
-    if (port != -1) {
-        sprintf(filter + offset, "port %d", port);
+        if (port != -1) {
+            sprintf(filter, "tcp port %d", port);
+        }
+        else{
+            sprintf(filter, "tcp");
+        }
     }
 }
 

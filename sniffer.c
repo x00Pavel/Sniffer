@@ -36,7 +36,7 @@ int main(int argc, char **argv) {
                                         {"help", no_argument, NULL, 0}};
     // Parse input arguments
     int option_index = 0;
-    while ((c = getopt_long(argc, argv, "i:p:n:tu", long_opts,
+    while ((c = getopt_long(argc, argv, "hi:p:n:tu", long_opts,
                             &option_index)) != -1) {
         switch (c) {
             case 0:
@@ -53,6 +53,9 @@ int main(int argc, char **argv) {
                     return 0;
                 }
                 break;
+            case 'h':
+                print_help();
+                return 0;
             case 'i':
                 if (optarg != NULL) {
                     interface = optarg;
