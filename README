@@ -1,0 +1,37 @@
+Author:  Pavel Yadlouski (xyadlo00)
+Date:    April, 2020
+Subject: IPK
+
+This is short description for using sniffer
+
+Executing:
+     sudo ./ipk-sniffer -i <interface_name> [-n <num>] [-u] [-t] [-p <port>]
+
+Parameters:
+    -h --help            print info to program
+    -i <interfaces_name> interface to be sniffed
+    -n <num>             maximum count of packets to be sniffed
+    -u --udp             filter UDP packets
+    -t --tcp             filter TCP packets
+    -p <port>            number of port to be sniffed\n
+
+Example of usage:
+    1) make
+    2) sudo ./ipk-sniffer -i wlp2s0 
+    
+    This way of executing would open interface wlp2s0 for sniffing, create 
+    default filter for UDP and TCP packets on any port and sniff ona packet. 
+    Combination of mentioned parameters would create corresponding filter 
+    for sniffing. 
+
+IMPORTANT:
+    Program should be executed with root privileges. This is caused by that 
+    platform would reject opening interface without root  privileges
+
+Limitations:
+    * Can not run without root
+    * Program can sniff only TCP and UDP packets
+    * There is no ability to set custom port range. Port can be setted by 
+      parameter -p, or any port would be used
+    * Not testing on IPv6
+     
