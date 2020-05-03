@@ -34,4 +34,4 @@ Limitations:
     * There is no ability to set custom port range. Port can be setted by 
       parameter -p, or any port would be used
     * Not testing on IPv6
-     
+    * For interface 'any' filter 'tcp or udp' doesn't work correctly

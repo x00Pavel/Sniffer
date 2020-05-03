@@ -26,7 +26,7 @@ int num_of_pkts = 1;
 int port = -1;
 int tcp_flag = 0, udp_flag = 0;
 int tcp_f = -1, udp_f = -1;
-int tcp = 0, udp = 0, icmp = 0, others = 0, igmp = 0, total_cnt = 0, i, j;
+int tcp = 0, udp = 0, i, j;
 
 struct sockaddr_in source, dest;
 struct bpf_program fp;
@@ -138,6 +138,7 @@ void process_packet(const struct pcap_pkthdr *header, const u_int8_t *packet) {
                 (struct tcphdr *)(packet + ip_hdr_len + sizeof(struct ethhdr));
             source.sin_port = tcp_h->source;
             dest.sin_port = tcp_h->dest;
+            tcp++;
             break;
         case 17:  // UDP
             print_log("UDP packet", 2);
@@ -145,6 +146,7 @@ void process_packet(const struct pcap_pkthdr *header, const u_int8_t *packet) {
                 (struct udphdr *)(packet + ip_hdr_len + sizeof(struct ethhdr));
             source.sin_port = udp_h->uh_sport;
             dest.sin_port = udp_h->uh_dport;
+            udp++;            
             break;
         default:  // Other protocol
             print_log("Other protocol", 2);
@@ -236,4 +238,10 @@ void start_loop() {
 
         process_packet(&header, packet);
     }
+
+    char tmp[32];
+    sprintf(tmp,"Count of TCP packets: %d", tcp);
+    print_log(tmp, 2);
+    sprintf(tmp, "Count of UDP packets: %d", udp);
+    print_log(tmp, 2);
 }
